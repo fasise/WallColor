@@ -3,44 +3,76 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Markerless AR Wall Color Changer</title>
-    <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
-    <script src="https://unpkg.com/aframe-ar@1.0.0/dist/aframe-ar-nft.min.js"></script>
+    <title>WebXR AR Wall Color Picker</title>
+    <style>body { margin: 0; overflow: hidden; }</style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@webxr-input-profiles/motion-controllers@1.0.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three/examples/jsm/webxr/VRButton.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three/examples/jsm/webxr/XRControllerModelFactory.js"></script>
 </head>
-<body style="margin: 0; overflow: hidden;">
-    <!-- AR Scene Setup -->
-    <a-scene
-        vr-mode-ui="enabled: false"
-        embedded
-        arjs="sourceType: webcam; trackingMethod: best; debugUIEnabled: false;">
-        
-        <!-- Virtual wall plane -->
-        <a-plane 
-            id="wall" 
-            rotation="-90 0 0" 
-            position="0 0 -2" 
-            width="3" 
-            height="3" 
-            color="#FFFFFF">
-        </a-plane>
-        
-        <!-- Camera for AR -->
-        <a-entity camera></a-entity>
-    </a-scene>
-
-    <!-- Color Picker Controls -->
-    <div style="position: fixed; bottom: 10px; left: 10px; display: flex; gap: 10px;">
-        <button onclick="changeColor('#ff0000')" style="background-color: #ff0000; width: 50px; height: 50px;"></button>
-        <button onclick="changeColor('#00ff00')" style="background-color: #00ff00; width: 50px; height: 50px;"></button>
-        <button onclick="changeColor('#0000ff')" style="background-color: #0000ff; width: 50px; height: 50px;"></button>
-        <button onclick="changeColor('#ffffff')" style="background-color: #ffffff; width: 50px; height: 50px; border: 1px solid #000;"></button>
+<body>
+    <div id="color-buttons" style="position: fixed; bottom: 10px; left: 10px; display: flex; gap: 10px;">
+        <button onclick="changeColor(0xff0000)" style="background-color: #ff0000; width: 50px; height: 50px;"></button>
+        <button onclick="changeColor(0x00ff00)" style="background-color: #00ff00; width: 50px; height: 50px;"></button>
+        <button onclick="changeColor(0x0000ff)" style="background-color: #0000ff; width: 50px; height: 50px;"></button>
+        <button onclick="changeColor(0xffffff)" style="background-color: #ffffff; width: 50px; height: 50px; border: 1px solid #000;"></button>
     </div>
 
     <script>
-        // Change the color of the wall plane
-        function changeColor(color) {
-            document.getElementById("wall").setAttribute("color", color);
+        let scene, camera, renderer;
+        let wall;
+        let xrSession;
+
+        // Initialize Three.js scene with WebXR
+        function init() {
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.xr.enabled = true;
+            document.body.appendChild(renderer.domElement);
+            document.body.appendChild(VRButton.createButton(renderer));
+
+            // Light
+            const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
+            light.position.set(0.5, 1, 0.25);
+            scene.add(light);
+
+            // Create a wall plane
+            const geometry = new THREE.PlaneGeometry(1, 1);
+            const material = new THREE.MeshBasicMaterial({ color: 0xffffff });
+            wall = new THREE.Mesh(geometry, material);
+            wall.rotation.x = -Math.PI / 2;
+            wall.visible = false; // Hide initially until AR session starts
+            scene.add(wall);
+
+            renderer.setAnimationLoop(render);
         }
+
+        // Change wall color
+        function changeColor(color) {
+            if (wall) wall.material.color.setHex(color);
+        }
+
+        // Render loop
+        function render() {
+            renderer.render(scene, camera);
+        }
+
+        // Handle WebXR session
+        renderer.xr.addEventListener('sessionstart', (event) => {
+            xrSession = event.session;
+
+            xrSession.requestReferenceSpace('local-floor').then((referenceSpace) => {
+                wall.visible = true; // Make wall visible in AR
+                wall.position.set(0, 0, -1); // Place wall at a default distance
+                renderer.xr.setReferenceSpaceType('local-floor');
+            });
+        });
+
+        // Start Three.js initialization
+        init();
     </script>
 </body>
 </html>
